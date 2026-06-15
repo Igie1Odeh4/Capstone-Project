@@ -6,8 +6,7 @@ import { requireAuth, requireRole } from "../utils/requireAuth.js";
 
 const router = express.Router();
 
-// Multer config
-const upload = multer({ dest: "uploads/" });
+import upload from "../middlewares/upload.js";
 
 /* =========================
    PUBLIC ROUTES

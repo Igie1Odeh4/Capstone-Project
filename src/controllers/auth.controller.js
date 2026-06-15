@@ -1,6 +1,7 @@
 import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 import cloudinary from "../config/cloudinary.js";
+import fs from "fs";
 import { generateToken } from "../utils/generateToken.js";
 import {
   registerUserSchema,
@@ -21,7 +22,9 @@ export const registerUser = async (req, res) => {
       });
     }
 
-    const { name, email, password, role } = value;
+    let { name, email, password, role } = value;
+
+    email = email.toLowerCase().trim();
 
     const existingUser = await User.findOne({ email });
 
@@ -32,21 +35,29 @@ export const registerUser = async (req, res) => {
       });
     }
 
+    // Default image
     let profileImage = {
       url: "",
       public_id: "",
     };
 
-    // ✅ Upload profile image if provided
-    if (req.file) {
-      const result = await cloudinary.uploader.upload(req.file.path, {
-        folder: "users/profile",
-      });
+    // =========================
+    // CLOUDINARY UPLOAD
+    // =========================
+    if (req.file?.path) {
+      try {
+        const result = await cloudinary.uploader.upload(req.file.path, {
+          folder: "users/profile",
+        });
 
-      profileImage = {
-        url: result.secure_url,
-        public_id: result.public_id,
-      };
+        profileImage = {
+          url: result.secure_url,
+          public_id: result.public_id,
+        };
+      } finally {
+        // always delete local file
+        fs.unlinkSync(req.file.path);
+      }
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -76,7 +87,7 @@ export const registerUser = async (req, res) => {
 };
 
 /* =========================
-   LOGIN USER (UNCHANGED)
+   LOGIN USER
 ========================= */
 export const loginUser = async (req, res) => {
   try {
@@ -117,19 +128,17 @@ export const loginUser = async (req, res) => {
       role: user.role,
     });
 
-    const userResponse = {
-      id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      profileImage: user.profileImage,
-    };
-
     return res.status(200).json({
       success: true,
       message: "Login successful",
       token,
-      user: userResponse,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        profileImage: user.profileImage,
+      },
     });
   } catch (err) {
     return res.status(500).json({
