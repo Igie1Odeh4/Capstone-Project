@@ -42,51 +42,6 @@ Joi Validation
 Morgan (logging)
 Helmet (security)
 CORS
-📁 Project Structure
-Capstone-Project/
-│
-├── src/
-│ ├── config/
-│ │ ├── db.js
-│ │ └── cloudinary.js
-│ │
-│ ├── controllers/
-│ │ ├── auth.controller.js
-│ │ ├── courseController.js
-│ │ ├── lesson.controller.js
-│ │ ├── progressController.js
-│ │ └── analyticsController.js
-│ │
-│ ├── models/
-│ │ ├── User.js
-│ │ ├── Course.js
-│ │ ├── Lesson.js
-│ │ ├── Progress.js
-│ │ └── ActivityLog.js
-│ │
-│ ├── routes/
-│ │ ├── auth.Routes.js
-│ │ ├── course.routes.js
-│ │ ├── lesson.routes.js
-│ │ ├── progress.routes.js
-│ │ └── analytics.routes.js
-│ │
-│ ├── middlewares/
-│ │ ├── requireAuth.js
-│ │ ├── validator.joi.js
-│ │ └── requestLogger.js
-│ │
-│ ├── utils/
-│ │ ├── generateToken.js
-│ │ └── logActivity.js
-│ │
-│ ├── app.js
-│ └── index.js
-│
-├── .env
-├── package.json
-└── README.md
-⚙️ Environment Variables
 
 Create a .env file:
 
