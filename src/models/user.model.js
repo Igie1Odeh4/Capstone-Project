@@ -2,14 +2,41 @@ import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
   {
-    name: String,
-    email: String,
-    password: String,
-    confirmPassword: String,
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
+
+    password: {
+      type: String,
+      required: true,
+    },
+
     role: {
       type: String,
       enum: ["student", "instructor", "admin"],
       default: "student",
+    },
+
+    // ✅ Cloudinary profile image
+    profileImage: {
+      url: {
+        type: String,
+        default: "",
+      },
+      public_id: {
+        type: String,
+        default: "",
+      },
     },
   },
   { timestamps: true },

@@ -1,5 +1,6 @@
 import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
+import cloudinary from "../config/cloudinary.js";
 import { generateToken } from "../utils/generateToken.js";
 import {
   registerUserSchema,
@@ -7,7 +8,7 @@ import {
 } from "../middlewares/validator.joi.js";
 
 /* =========================
-   REGISTER USER
+   REGISTER USER (WITH CLOUDINARY)
 ========================= */
 export const registerUser = async (req, res) => {
   try {
@@ -31,6 +32,23 @@ export const registerUser = async (req, res) => {
       });
     }
 
+    let profileImage = {
+      url: "",
+      public_id: "",
+    };
+
+    // ✅ Upload profile image if provided
+    if (req.file) {
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: "users/profile",
+      });
+
+      profileImage = {
+        url: result.secure_url,
+        public_id: result.public_id,
+      };
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
@@ -38,6 +56,7 @@ export const registerUser = async (req, res) => {
       email,
       password: hashedPassword,
       role,
+      profileImage,
     });
 
     const userResponse = user.toObject();
@@ -57,7 +76,7 @@ export const registerUser = async (req, res) => {
 };
 
 /* =========================
-   LOGIN USER
+   LOGIN USER (UNCHANGED)
 ========================= */
 export const loginUser = async (req, res) => {
   try {
@@ -103,6 +122,7 @@ export const loginUser = async (req, res) => {
       name: user.name,
       email: user.email,
       role: user.role,
+      profileImage: user.profileImage,
     };
 
     return res.status(200).json({

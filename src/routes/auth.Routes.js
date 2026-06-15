@@ -1,14 +1,28 @@
 import express from "express";
+import multer from "multer";
+
 import { registerUser, loginUser } from "../controllers/auth.controller.js";
 import { requireAuth, requireRole } from "../utils/requireAuth.js";
 
 const router = express.Router();
 
-// Public routes
-router.post("/register", registerUser);
+// Multer config
+const upload = multer({ dest: "uploads/" });
+
+/* =========================
+   PUBLIC ROUTES
+========================= */
+
+// Register with profile image upload (Cloudinary-ready)
+router.post("/register", upload.single("profileImage"), registerUser);
+
 router.post("/login", loginUser);
 
-// Protected route - any logged-in user
+/* =========================
+   PROTECTED ROUTES
+========================= */
+
+// Get logged-in user profile
 router.get("/profile", requireAuth, (req, res) => {
   res.json({
     success: true,
@@ -16,7 +30,7 @@ router.get("/profile", requireAuth, (req, res) => {
   });
 });
 
-// Admin-only route
+// Admin only route
 router.get("/admin", requireAuth, requireRole(["admin"]), (req, res) => {
   res.json({
     success: true,
