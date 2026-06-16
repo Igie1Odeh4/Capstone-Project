@@ -7,19 +7,23 @@ import logActivity from "../utils/logActivity.js";
 ========================= */
 export const createCourse = async (req, res) => {
   try {
+    console.log("BODY:", req.body);
+    console.log("FILE:", req.file);
+    console.log("USER:", req.user);
+
     const { title, description, category, price, duration, published } =
       req.body;
 
-    let thumbnail = {};
+    let thumbnail = {
+      url: "",
+      public_id: "",
+    };
 
+    // Cloudinary image already uploaded by multer-storage-cloudinary
     if (req.file) {
-      const result = await cloudinary.uploader.upload(req.file.path, {
-        folder: "courses/thumbnails",
-      });
-
       thumbnail = {
-        url: result.secure_url,
-        public_id: result.public_id,
+        url: req.file.path, // Cloudinary URL
+        public_id: req.file.filename, // Cloudinary public_id
       };
     }
 
@@ -29,25 +33,29 @@ export const createCourse = async (req, res) => {
       category,
       price,
       duration,
-      published,
-      instructor: req.user._id, // FIX: prevent spoofing
+      published: published === "true",
+      instructor: req.user.id,
       thumbnail,
     });
 
     await logActivity({
-      user: req.user._id,
+      user: req.user.id,
       action: "COURSE_CREATED",
       course: course._id,
     });
 
     return res.status(201).json({
       success: true,
+      message: "Course created successfully",
       course,
     });
   } catch (error) {
+    console.error("CREATE COURSE ERROR:", error);
+
     return res.status(500).json({
       success: false,
       message: error.message,
+      stack: error.stack,
     });
   }
 };

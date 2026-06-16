@@ -12,6 +12,7 @@ import upload from "../middlewares/upload.js";
 
 const router = express.Router();
 
+/* Create Course */
 router.post(
   "/",
   requireAuth,
@@ -20,10 +21,13 @@ router.post(
   createCourse,
 );
 
+/* Get All Courses */
 router.get("/", getCourses);
 
+/* Get Single Course */
 router.get("/:id", getCourseById);
 
+/* Update Course */
 router.put(
   "/:id",
   requireAuth,
@@ -32,6 +36,7 @@ router.put(
   updateCourse,
 );
 
+/* Delete Course */
 router.delete("/:id", requireAuth, requireRole(["admin"]), deleteCourse);
 
 export default router;

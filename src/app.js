@@ -37,4 +37,14 @@ app.use("/api/lessons", lessonRoutes);
 app.use("/api/progress", progressRoutes);
 app.use("/api/analytics", analyticsRoutes);
 
+app.use((err, req, res, next) => {
+  console.error("ERROR:", err);
+
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message,
+    error: err,
+  });
+});
+
 export default app;
