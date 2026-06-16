@@ -1,7 +1,11 @@
 import express from "express";
 import multer from "multer";
 
-import { registerUser, loginUser } from "../controllers/auth.controller.js";
+import {
+  registerUser,
+  loginUser,
+  logoutUser,
+} from "../controllers/auth.controller.js";
 import { requireAuth, requireRole } from "../utils/requireAuth.js";
 
 const router = express.Router();
@@ -36,5 +40,7 @@ router.get("/admin", requireAuth, requireRole(["admin"]), (req, res) => {
     message: "Admin access granted",
   });
 });
+
+router.post("/logout", logoutUser);
 
 export default router;

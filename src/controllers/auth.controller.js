@@ -143,3 +143,18 @@ export const loginUser = async (req, res) => {
     });
   }
 };
+
+export const logoutUser = async (req, res) => {
+  try {
+    return res.status(200).json({
+      success: true,
+      message:
+        "Logged out successfully. Please remove token from client storage.",
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};

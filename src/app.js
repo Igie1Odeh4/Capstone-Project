@@ -4,6 +4,7 @@ import morgan from "morgan";
 import helmet from "helmet";
 import dotenv from "dotenv";
 import path from "path";
+import cookieParser from "cookie-parser";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
