@@ -1,26 +1,28 @@
 import jwt from "jsonwebtoken";
 
 /* =========================
-   AUTH MIDDLEWARE
+   AUTH MIDDLEWARE (HTTP-ONLY COOKIES)
 ========================= */
 export const requireAuth = (req, res, next) => {
   try {
-    console.log("AUTH HEADER:", req.headers.authorization);
-    const authHeader = req.headers.authorization;
+    // 1. Inspect the cookie container instead of req.headers.authorization
+    console.log("ALL COOKIES:", req.cookies);
+    const token = req.cookies?.token;
 
-    console.log("AUTH HEADER:", authHeader);
+    console.log("EXTRACTED COOKIE TOKEN:", token);
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // If the cookie isn't attached, stop the conveyor belt here
+    if (!token) {
       return res.status(401).json({
         success: false,
         message: "No token provided",
       });
     }
 
-    const token = authHeader.split(" ")[1];
-
+    // 2. Cryptographically verify the cookie payload
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    // 3. Mount the payload details onto the request object
     req.user = decoded;
 
     console.log("USER SET:", req.user);
@@ -37,7 +39,7 @@ export const requireAuth = (req, res, next) => {
 };
 
 /* =========================
-   ROLE BASED ACCESS
+   ROLE BASED ACCESS (Stays Identical)
 ========================= */
 export const requireRole = (roles = []) => {
   return (req, res, next) => {
@@ -51,7 +53,6 @@ export const requireRole = (roles = []) => {
     }
 
     const role = req.user.role?.toLowerCase();
-
     const allowed = roles.map((r) => r.toLowerCase());
 
     console.log("ROLE CHECK:", { role, allowed });

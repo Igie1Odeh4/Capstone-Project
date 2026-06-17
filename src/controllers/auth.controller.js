@@ -100,47 +100,41 @@ export const registerUser = async (req, res) => {
   }
 };
 
-/* =========================
-   LOGIN USER
-========================= */
 export const loginUser = async (req, res) => {
   try {
     const { error, value } = loginUserSchema.validate(req.body);
-
     if (error) {
-      return res.status(400).json({
-        success: false,
-        message: error.details[0].message,
-      });
+      return res
+        .status(400)
+        .json({ success: false, message: error.details[0].message });
     }
 
     const { email, password } = value;
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
 
-    const user = await User.findOne({
-      email: email.toLowerCase().trim(),
-    });
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "Invalid credentials", // Security Best Practice: obscure exact error reasons
-      });
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid credentials" });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid credentials",
-      });
-    }
-
+    // 1. Generate the token string
     const token = generateToken(user);
+
+    // 2. Set cookie options for secure production environments
+    const cookieOptions = {
+      httpOnly: true, // Prevent client-side XSS scripts from reading this token
+      secure: process.env.NODE_ENV === "production", // Only send over HTTPS in production
+      sameSite: "strict", // Protects against CSRF attacks
+      maxAge: 24 * 60 * 60 * 1000, // 1 day matching token expiration
+    };
+
+    // 3. Bake the token into the response cookie stream
+    res.cookie("token", token, cookieOptions);
 
     return res.status(200).json({
       success: true,
       message: "Login successful",
-      token,
       user: {
         id: user._id,
         name: user.name,
@@ -150,10 +144,7 @@ export const loginUser = async (req, res) => {
       },
     });
   } catch (err) {
-    return res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+    return res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -162,15 +153,19 @@ export const loginUser = async (req, res) => {
 ========================= */
 export const logoutUser = async (req, res) => {
   try {
+    // Overwrite the cookie with an immediate expiration date
+    res.clearCookie("token", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+    });
+
     return res.status(200).json({
       success: true,
       message:
-        "Logged out successfully. Please remove token from client storage.",
+        "Logged out successfully. Browser has cleared session identifiers.",
     });
   } catch (err) {
-    return res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+    return res.status(500).json({ success: false, message: err.message });
   }
 };

@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import path from "path";
 import cookieParser from "cookie-parser";
 import { fileURLToPath } from "url";
+// In your main index.js/server.js file:
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,6 +29,7 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 app.use(requestLogger);
+app.use(cookieParser());
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "views", "home.html"));
