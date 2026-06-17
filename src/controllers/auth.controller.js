@@ -16,6 +16,10 @@ export const registerUser = async (req, res) => {
     const { error, value } = registerUserSchema.validate(req.body);
 
     if (error) {
+      // Clean up files immediately if validation parameters fail
+      if (req.file?.path && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
       return res.status(400).json({
         success: false,
         message: error.details[0].message,
@@ -23,40 +27,43 @@ export const registerUser = async (req, res) => {
     }
 
     let { name, email, password, role } = value;
-
     email = email.toLowerCase().trim();
 
     const existingUser = await User.findOne({ email });
-
     if (existingUser) {
+      // Clean up files immediately if email conflict exists
+      if (req.file?.path && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
       return res.status(409).json({
         success: false,
         message: "User already exists",
       });
     }
 
-    // Default image
-    let profileImage = {
-      url: "",
-      public_id: "",
-    };
+    let profileImage = { url: "", public_id: "" };
 
-    // =========================
-    // CLOUDINARY UPLOAD
-    // =========================
+    // Hardened File Upload Pipeline
     if (req.file?.path) {
       try {
-        const result = await cloudinary.uploader.upload(req.file.path, {
-          folder: "users/profile",
-        });
+        if (fs.existsSync(req.file.path)) {
+          const result = await cloudinary.uploader.upload(req.file.path, {
+            folder: "users/profile",
+          });
 
-        profileImage = {
-          url: result.secure_url,
-          public_id: result.public_id,
-        };
+          profileImage = {
+            url: result.secure_url,
+            public_id: result.public_id,
+          };
+        }
+      } catch (uploadError) {
+        console.error("Cloudinary Upload Error:", uploadError.message);
+        // Do not crash, let the user register with the default empty profile image
       } finally {
-        // always delete local file
-        fs.unlinkSync(req.file.path);
+        // Safe standalone local file elimination guard
+        if (req.file?.path && fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
       }
     }
 
@@ -66,7 +73,7 @@ export const registerUser = async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      role,
+      role: role || "student",
       profileImage,
     });
 
@@ -76,9 +83,16 @@ export const registerUser = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: "User created successfully",
-      user: userResponse,
+      user: {
+        id: userResponse._id,
+        ...userResponse,
+      },
     });
   } catch (err) {
+    // Ultimate fallback catch-all file deletion guard
+    if (req.file?.path && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
     return res.status(500).json({
       success: false,
       message: err.message,
@@ -109,12 +123,11 @@ export const loginUser = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found",
+        message: "Invalid credentials", // Security Best Practice: obscure exact error reasons
       });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
-
     if (!isMatch) {
       return res.status(401).json({
         success: false,
@@ -144,6 +157,9 @@ export const loginUser = async (req, res) => {
   }
 };
 
+/* =========================
+   LOGOUT USER
+========================= */
 export const logoutUser = async (req, res) => {
   try {
     return res.status(200).json({

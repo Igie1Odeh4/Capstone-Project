@@ -37,6 +37,11 @@ router.put(
 );
 
 /* Delete Course */
-router.delete("/:id", requireAuth, requireRole(["admin"]), deleteCourse);
+router.delete(
+  "/:id",
+  requireAuth,
+  requireRole(["admin", "instructor"]),
+  deleteCourse,
+);
 
 export default router;

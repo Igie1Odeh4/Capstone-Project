@@ -37,7 +37,11 @@ router.put(
   ]),
   updateLesson,
 );
-
-router.delete("/:id", requireAuth, requireRole(["admin"]), deleteLesson);
+router.delete(
+  "/:id",
+  requireAuth,
+  requireRole(["admin", "instructor"]),
+  deleteLesson,
+);
 
 export default router;

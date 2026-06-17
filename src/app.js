@@ -15,6 +15,7 @@ import courseRoutes from "./routes/course.routes.js";
 import lessonRoutes from "./routes/lesson.routes.js";
 import progressRoutes from "./routes/progress.routes.js";
 import analyticsRoutes from "./routes/analytics.routes.js";
+import enrollmentRoutes from "./routes/enrollment.routes.js";
 
 import { requestLogger } from "./middlewares/requestLogger.js";
 

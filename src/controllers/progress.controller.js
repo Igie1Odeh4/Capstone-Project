@@ -1,6 +1,7 @@
 import Progress from "../models/progress.model.js";
 import Course from "../models/course.model.js";
 import Lesson from "../models/lesson.model.js";
+import mongoose from "mongoose";
 
 /* =========================
    ENROLL IN COURSE
@@ -8,44 +9,42 @@ import Lesson from "../models/lesson.model.js";
 export const enrollCourse = async (req, res) => {
   try {
     const { courseId } = req.body;
+    const studentId = req.user._id || req.user.id;
 
-    const studentId = req.user.id;
-
-    const course = await Course.findById(courseId);
-
-    if (!course) {
-      return res.status(404).json({
-        success: false,
-        message: "Course not found",
-      });
+    if (!mongoose.Types.ObjectId.isValid(courseId)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid course ID format." });
     }
 
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Course not found" });
+    }
+
+    // Leverages unique compound index strategy to catch multi-click race conditions
     const existingProgress = await Progress.findOne({
       student: studentId,
       course: courseId,
     });
-
     if (existingProgress) {
-      return res.status(400).json({
-        success: false,
-        message: "Already enrolled",
-      });
+      return res
+        .status(400)
+        .json({ success: false, message: "Already enrolled in this course." });
     }
 
     const progress = await Progress.create({
       student: studentId,
       course: courseId,
+      completedLessons: [],
+      progressPercentage: 0,
     });
 
-    res.status(201).json({
-      success: true,
-      progress,
-    });
+    return res.status(201).json({ success: true, progress });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -55,50 +54,47 @@ export const enrollCourse = async (req, res) => {
 export const completeLesson = async (req, res) => {
   try {
     const { courseId, lessonId } = req.body;
+    const studentId = req.user._id || req.user.id;
 
-    const studentId = req.user.id;
+    if (
+      !mongoose.Types.ObjectId.isValid(courseId) ||
+      !mongoose.Types.ObjectId.isValid(lessonId)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid course ID or lesson ID format.",
+      });
+    }
 
     const progress = await Progress.findOne({
       student: studentId,
       course: courseId,
     });
-
     if (!progress) {
       return res.status(404).json({
         success: false,
-        message: "Enrollment not found",
+        message: "Enrollment record not found for this course.",
       });
     }
 
     const alreadyCompleted = progress.completedLessons.includes(lessonId);
-
     if (!alreadyCompleted) {
       progress.completedLessons.push(lessonId);
     }
 
-    const totalLessons = await Lesson.countDocuments({
-      course: courseId,
-    });
-
+    const totalLessons = await Lesson.countDocuments({ course: courseId });
     const completedCount = progress.completedLessons.length;
 
-    progress.progressPercentage = Math.round(
-      (completedCount / totalLessons) * 100,
-    );
-
+    // Guard against edge cases where a course has 0 lessons to prevent NaN mathematically
+    progress.progressPercentage =
+      totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
     progress.completed = progress.progressPercentage === 100;
 
     await progress.save();
 
-    res.status(200).json({
-      success: true,
-      progress,
-    });
+    return res.status(200).json({ success: true, progress });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -107,22 +103,18 @@ export const completeLesson = async (req, res) => {
 ========================= */
 export const getMyProgress = async (req, res) => {
   try {
-    const progress = await Progress.find({
-      student: req.user.id,
-    })
+    const studentId = req.user._id || req.user.id;
+    const progress = await Progress.find({ student: studentId })
       .populate("course")
       .populate("completedLessons");
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       count: progress.length,
       progress,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -131,9 +123,19 @@ export const getMyProgress = async (req, res) => {
 ========================= */
 export const getCourseProgress = async (req, res) => {
   try {
+    const { courseId } = req.params;
+    const studentId = req.user._id || req.user.id;
+
+    if (!mongoose.Types.ObjectId.isValid(courseId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid course ID parameter format.",
+      });
+    }
+
     const progress = await Progress.findOne({
-      student: req.user.id,
-      course: req.params.courseId,
+      student: studentId,
+      course: courseId,
     })
       .populate("course")
       .populate("completedLessons");
@@ -141,31 +143,23 @@ export const getCourseProgress = async (req, res) => {
     if (!progress) {
       return res.status(404).json({
         success: false,
-        message: "Progress not found",
+        message: "No enrollment progress found for this course.",
       });
     }
 
-    res.status(200).json({
-      success: true,
-      progress,
-    });
+    return res.status(200).json({ success: true, progress });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
 /* =========================
-   GET ALL PROGRESS
-   (ADMIN)
+   GET ALL PROGRESS (ADMIN)
 ========================= */
 export const getAllProgress = async (req, res) => {
   try {
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
-
     const skip = (page - 1) * limit;
 
     const progress = await Progress.find()
@@ -177,7 +171,7 @@ export const getAllProgress = async (req, res) => {
 
     const total = await Progress.countDocuments();
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       page,
       totalPages: Math.ceil(total / limit),
@@ -185,10 +179,7 @@ export const getAllProgress = async (req, res) => {
       progress,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -197,13 +188,18 @@ export const getAllProgress = async (req, res) => {
 ========================= */
 export const resetProgress = async (req, res) => {
   try {
-    const progress = await Progress.findById(req.params.id);
-
-    if (!progress) {
-      return res.status(404).json({
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
         success: false,
-        message: "Progress not found",
+        message: "Invalid progress record ID format.",
       });
+    }
+
+    const progress = await Progress.findById(req.params.id);
+    if (!progress) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Progress record not found." });
     }
 
     progress.completedLessons = [];
@@ -212,16 +208,13 @@ export const resetProgress = async (req, res) => {
 
     await progress.save();
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: "Progress reset successfully",
+      message: "Progress track reset successfully.",
       progress,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -230,25 +223,27 @@ export const resetProgress = async (req, res) => {
 ========================= */
 export const deleteProgress = async (req, res) => {
   try {
-    const progress = await Progress.findById(req.params.id);
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid ID format." });
+    }
 
+    const progress = await Progress.findById(req.params.id);
     if (!progress) {
       return res.status(404).json({
         success: false,
-        message: "Progress not found",
+        message: "Progress reference tracking entity missing.",
       });
     }
 
     await progress.deleteOne();
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: "Progress deleted successfully",
+      message: "Progress history entity deleted successfully.",
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };

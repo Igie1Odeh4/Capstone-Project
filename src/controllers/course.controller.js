@@ -9,8 +9,8 @@ export const createCourse = async (req, res) => {
   try {
     const { title, description, category, price, duration, published } =
       req.body;
-    console.log("REQ USER:", req.user);
 
+    // 1. Authentication Check
     if (!req.user) {
       return res.status(401).json({
         success: false,
@@ -18,27 +18,45 @@ export const createCourse = async (req, res) => {
       });
     }
 
-    let thumbnail = {
-      url: "",
-      public_id: "",
-    };
+    // 2. Input Validation Guard
+    if (!title || !description || !category) {
+      return res.status(400).json({
+        success: false,
+        message: "Title, description, and category fields are required.",
+      });
+    }
+
+    // 3. Corrected Cloudinary Upload Workflow
+    let thumbnail = { url: "", public_id: "" };
 
     if (req.file) {
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: "courses/thumbnails",
+        resource_type: "image",
+      });
       thumbnail = {
-        url: req.file.path,
-        public_id: req.file.filename || "",
+        url: result.secure_url,
+        public_id: result.public_id,
       };
     }
 
+    // 4. Create Document
     const course = await Course.create({
       title,
       description,
       category,
-      price,
-      duration: Number(duration), // ✅ important fix
-      published,
-      instructor: req.user.id, // ✅ FIXED
+      price: Number(price) || 0,
+      duration: Number(duration) || 0,
+      published: published === "true" || published === true,
+      instructor: req.user._id || req.user.id, // Handles both styles safely
       thumbnail,
+    });
+
+    // 5. Log Action
+    await logActivity({
+      user: req.user._id || req.user.id,
+      action: "COURSE_CREATED",
+      course: course._id,
     });
 
     return res.status(201).json({
@@ -48,7 +66,6 @@ export const createCourse = async (req, res) => {
     });
   } catch (error) {
     console.error("CREATE COURSE ERROR:", error);
-
     return res.status(500).json({
       success: false,
       message: error.message,
@@ -148,14 +165,15 @@ export const updateCourse = async (req, res) => {
       });
     }
 
-    // OPTIONAL: ownership check (recommended)
+    // Ownership Enforcement Safeguard
+    const currentUserId = req.user._id || req.user.id;
     if (
       req.user.role !== "admin" &&
-      course.instructor.toString() !== req.user._id.toString()
+      course.instructor.toString() !== currentUserId.toString()
     ) {
       return res.status(403).json({
         success: false,
-        message: "Unauthorized",
+        message: "Unauthorized: You do not own this course.",
       });
     }
 
@@ -178,13 +196,19 @@ export const updateCourse = async (req, res) => {
     course.description = req.body.description || course.description;
     course.category = req.body.category || course.category;
     course.price = req.body.price ?? course.price;
-    course.duration = req.body.duration ?? course.duration;
-    course.published = req.body.published ?? course.published;
+    course.duration =
+      req.body.duration !== undefined
+        ? Number(req.body.duration)
+        : course.duration;
+    course.published =
+      req.body.published !== undefined
+        ? req.body.published === "true" || req.body.published === true
+        : course.published;
 
     await course.save();
 
     await logActivity({
-      user: req.user._id,
+      user: currentUserId,
       action: "COURSE_UPDATED",
       course: course._id,
     });
@@ -215,13 +239,14 @@ export const deleteCourse = async (req, res) => {
       });
     }
 
+    const currentUserId = req.user._id || req.user.id;
     if (
       req.user.role !== "admin" &&
-      course.instructor.toString() !== req.user._id.toString()
+      course.instructor.toString() !== currentUserId.toString()
     ) {
       return res.status(403).json({
         success: false,
-        message: "Unauthorized",
+        message: "Unauthorized: Action denied.",
       });
     }
 
@@ -232,7 +257,7 @@ export const deleteCourse = async (req, res) => {
     await Course.findByIdAndDelete(course._id);
 
     await logActivity({
-      user: req.user._id,
+      user: currentUserId,
       action: "COURSE_DELETED",
       course: course._id,
     });
