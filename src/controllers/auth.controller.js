@@ -162,8 +162,7 @@ export const logoutUser = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message:
-        "Logged out successfully. Browser has cleared session identifiers.",
+      message: "Logged out successfully.",
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
